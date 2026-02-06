@@ -6,7 +6,7 @@ const productSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
   description: z.string().min(1, "Description is required").optional(),
   price: z.number().positive("Price must be positive").optional(),
-  image: z.string().url().optional().nullable().or(z.literal("")),
+  image: z.string().optional().nullable(),
 });
 
 function serializeProduct(p: { id: string; name: string; description: string; price: unknown; image: string | null; createdAt: Date; updatedAt: Date }) {

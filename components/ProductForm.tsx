@@ -30,8 +30,35 @@ export function ProductForm({ productId, initial = defaultInitial }: ProductForm
   const [image, setImage] = useState(initial.image);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const isEdit = !!productId;
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Upload failed");
+      } else if (data.url) {
+        const absoluteUrl =
+          typeof window !== "undefined" && !data.url.startsWith("http")
+            ? `${window.location.origin}${data.url}`
+            : data.url;
+        setImage(absoluteUrl);
+      }
+    } catch {
+      setError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,9 +167,20 @@ export function ProductForm({ productId, initial = defaultInitial }: ProductForm
           type="url"
           value={image}
           onChange={(e) => setImage(e.target.value)}
-          className="w-full rounded-lg border border-primary-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          className="w-full rounded-lg border border-primary-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-2"
           placeholder="https://..."
         />
+        <label htmlFor="imageFile" className="block text-sm font-medium text-gray-700 mb-1">
+          Or upload an image (optional)
+        </label>
+        <input
+          id="imageFile"
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="w-full"
+        />
+        {uploading && <p className="text-sm text-gray-500">Uploading…</p>}
       </div>
       <div className="flex gap-4">
         <button

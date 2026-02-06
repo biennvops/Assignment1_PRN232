@@ -6,7 +6,7 @@ const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
   price: z.number().positive("Price must be positive"),
-  image: z.string().url().optional().nullable().or(z.literal("")),
+  image: z.string().optional().nullable(),
 });
 
 function serializeProduct(p: { id: string; name: string; description: string; price: unknown; image: string | null; createdAt: Date; updatedAt: Date }) {
@@ -38,15 +38,14 @@ export async function GET(request: NextRequest) {
         }
       : {};
 
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      prisma.product.count({ where }),
-    ]);
+    // Run sequentially to avoid "prepared statement already exists" on Vercel/serverless
+    const total = await prisma.product.count({ where });
+    const products = await prisma.product.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      skip,
+      take: limit,
+    });
 
     return NextResponse.json({
       products: products.map(serializeProduct),
