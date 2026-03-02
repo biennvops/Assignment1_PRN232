@@ -22,11 +22,51 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const originalName = file.name ?? "file";
+    const name = originalName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+    const filename = `${Date.now()}_${name}`;
+
+    // Cloudinary if configured
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const cloudApiKey = process.env.CLOUDINARY_API_KEY;
+    const cloudApiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (cloudName && cloudApiKey && cloudApiSecret) {
+      const { v2: cloudinary } = await import("cloudinary");
+      cloudinary.config({
+        cloud_name: cloudName,
+        api_key: cloudApiKey,
+        api_secret: cloudApiSecret,
+      });
+
+      const uploadFromBuffer = (buffer: Buffer) =>
+        new Promise<any>((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { resource_type: "auto", folder: "uploads", public_id: filename },
+            (error: any, result: any) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          stream.end(buffer);
+        });
+
+      const result = await uploadFromBuffer(buffer);
+      const url = (result && (result.secure_url || result.url)) || null;
+      if (!url) throw new Error("Cloudinary upload failed");
+      return NextResponse.json({ url }, { status: 200, headers: corsHeaders });
+    }
+
+    // Local fallback only for devenv
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { error: "Must configure a provider in production." },
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
     const uploadsDir = path.join(process.cwd(), "public", "uploads");
     await fs.mkdir(uploadsDir, { recursive: true });
-
-    const name = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-    const filename = `${Date.now()}_${name}`;
     const filePath = path.join(uploadsDir, filename);
     await fs.writeFile(filePath, buffer);
 

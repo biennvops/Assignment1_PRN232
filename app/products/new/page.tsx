@@ -1,7 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ProductForm } from "@/components/ProductForm";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function NewProductPage() {
+export default async function NewProductPage() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">

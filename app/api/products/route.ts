@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    await requireUser();
     const body = await request.json();
     const parsed = productSchema.safeParse({
       ...body,
@@ -93,6 +95,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(serializeProduct(product), { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("POST /api/products:", error);
     return NextResponse.json(
       { error: "Failed to create product" },

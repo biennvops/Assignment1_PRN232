@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { Providers } from "@/components/Providers";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-geist-sans" });
 
@@ -18,8 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased min-h-screen flex flex-col`}>
-        <Nav />
-        <main className="flex-1 container mx-auto px-4 py-8">{children}</main>
+        <Providers>
+          <Nav />
+          <main className="flex-1 container mx-auto px-4 py-8">{children}</main>
+        </Providers>
         <footer className="border-t border-primary-200 py-6 text-center text-sm text-gray-600">
           this is a nice footer line. don't look at me though. focus in the items!
         </footer>

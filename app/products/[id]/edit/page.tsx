@@ -1,13 +1,19 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ProductForm } from "@/components/ProductForm";
+import { getCurrentUser } from "@/lib/auth";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
 export default async function EditProductPage({ params }: Props) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
   const { id } = await params;
   const product = await prisma.product.findUnique({ where: { id } });
 

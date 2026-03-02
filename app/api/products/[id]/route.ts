@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
@@ -48,6 +49,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireUser();
     const { id } = await params;
     const body = await request.json();
     const parsed = productSchema.safeParse({
@@ -81,6 +83,9 @@ export async function PUT(
 
     return NextResponse.json(serializeProduct(product));
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("PUT /api/products/[id]:", error);
     return NextResponse.json(
       { error: "Failed to update product" },
@@ -94,6 +99,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireUser();
     const { id } = await params;
     const existing = await prisma.product.findUnique({ where: { id } });
 
@@ -104,6 +110,9 @@ export async function DELETE(
     await prisma.product.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("DELETE /api/products/[id]:", error);
     return NextResponse.json(
       { error: "Failed to delete product" },

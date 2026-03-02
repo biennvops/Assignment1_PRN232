@@ -2,7 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { DeleteProductButton } from "@/components/DeleteProductButton";
+import { ProductActions } from "@/components/ProductActions";
+import { AddToCartButton } from "@/components/AddToCartButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -47,15 +48,8 @@ export default async function ProductDetailPage({ params }: Props) {
             <p className="mt-6 text-2xl font-semibold text-primary-600">
               ${price.toFixed(2)}
             </p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                href={`/products/${product.id}/edit`}
-                className="px-6 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700"
-              >
-                Edit product
-              </Link>
-              <DeleteProductButton productId={product.id} productName={product.name} />
-            </div>
+            <AddToCartButton productId={product.id} />
+            <ProductActions productId={product.id} productName={product.name} />
           </div>
         </div>
       </div>
