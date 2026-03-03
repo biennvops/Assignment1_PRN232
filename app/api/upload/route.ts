@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
+import crypto from "crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,38 +27,51 @@ export async function POST(request: NextRequest) {
     const name = originalName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
     const filename = `${Date.now()}_${name}`;
 
-    // Cloudinary if configured
+    // Cloudinary via direct API if configured
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const cloudApiKey = process.env.CLOUDINARY_API_KEY;
     const cloudApiSecret = process.env.CLOUDINARY_API_SECRET;
 
     if (cloudName && cloudApiKey && cloudApiSecret) {
-      const { v2: cloudinary } = await import("cloudinary");
-      cloudinary.config({
-        cloud_name: cloudName,
-        api_key: cloudApiKey,
-        api_secret: cloudApiSecret,
+      const timestamp = Math.round(Date.now() / 1000);
+      const stringToSign = `timestamp=${timestamp}${cloudApiSecret}`;
+      const signature = crypto.createHash("sha1").update(stringToSign).digest("hex");
+
+      const form = new FormData();
+      // Node's undici FormData supports Buffer; cast to any to satisfy TS.
+      form.append("file", buffer as any, filename);
+      form.append("api_key", cloudApiKey);
+      form.append("timestamp", String(timestamp));
+      form.append("signature", signature);
+
+      const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+        method: "POST",
+        body: form as any,
       });
 
-      const uploadFromBuffer = (buffer: Buffer) =>
-        new Promise<any>((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { resource_type: "auto", folder: "uploads", public_id: filename },
-            (error: any, result: any) => {
-              if (error) return reject(error);
-              resolve(result);
-            }
-          );
-          stream.end(buffer);
-        });
+      if (!cloudRes.ok) {
+        const text = await cloudRes.text().catch(() => "");
+        console.error("Cloudinary upload failed:", cloudRes.status, text.slice(0, 200));
+        return NextResponse.json(
+          { error: "Cloudinary upload failed" },
+          { status: 500, headers: corsHeaders }
+        );
+      }
 
-      const result = await uploadFromBuffer(buffer);
-      const url = (result && (result.secure_url || result.url)) || null;
-      if (!url) throw new Error("Cloudinary upload failed");
+      const data = (await cloudRes.json().catch(() => null)) as any;
+      const url = data && (data.secure_url || data.url);
+      if (!url) {
+        console.error("Cloudinary upload missing URL field:", data);
+        return NextResponse.json(
+          { error: "Cloudinary upload failed" },
+          { status: 500, headers: corsHeaders }
+        );
+      }
+
       return NextResponse.json({ url }, { status: 200, headers: corsHeaders });
     }
 
-    // Local fallback only for devenv
+    // Local fallback only for dev env
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json(
         { error: "Must configure a provider in production." },
