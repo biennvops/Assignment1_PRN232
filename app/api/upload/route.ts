@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
       const signature = crypto.createHash("sha1").update(stringToSign).digest("hex");
 
       const form = new FormData();
-      // Node's undici FormData supports Buffer; cast to any to satisfy TS.
-      form.append("file", buffer as any, filename);
+      const blob = new Blob([buffer], { type: file.type || "application/octet-stream" });
+      form.append("file", blob, filename);
       form.append("api_key", cloudApiKey);
       form.append("timestamp", String(timestamp));
       form.append("signature", signature);
